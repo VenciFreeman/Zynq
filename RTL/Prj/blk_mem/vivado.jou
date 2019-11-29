@@ -1,0 +1,13 @@
+#-----------------------------------------------------------
+# Vivado v2016.4 (64-bit)
+# SW Build 1756540 on Mon Jan 23 19:11:23 MST 2017
+# IP Build 1755317 on Mon Jan 23 20:30:07 MST 2017
+# Start of session at: Thu Oct 24 19:52:56 2019
+# Process ID: 6560
+# Current directory: C:/Users/Venci/Desktop/microe/hw1/blk_mem
+# Command line: vivado.exe -gui_launcher_event rodinguilauncherevent10876 C:\Users\Venci\Desktop\microe\hw1\blk_mem\blk_mem.dcp
+# Log file: C:/Users/Venci/Desktop/microe/hw1/blk_mem/vivado.log
+# Journal file: C:/Users/Venci/Desktop/microe/hw1/blk_mem\vivado.jou
+#-----------------------------------------------------------
+start_gui
+open_checkpoint {C:\Users\Venci\Desktop\microe\hw1\blk_mem\blk_mem.dcp}
