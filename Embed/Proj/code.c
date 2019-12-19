@@ -33,18 +33,16 @@
 #include "xil_exception.h"
 
 /************************** Constant Definitions *****************************/
-XScuTimer Timer;  // Cortex A9 SCU Private Timer Instance
-XGpio sw_but;
+XScuTimer Timer;		/* Cortex A9 SCU Private Timer Instance */
 
 #define ONE_TENTH 32500000 // half of the CPU clock speed/10
-// #define LED_DELAY	1000000
-// #define INTR_DELAY 0x00FFFFFF  // 1 second
-
-#define DEVICE_ID 0xffffffff
 #define BTN_SW_CHANNEL	 1  // Channel 1 of the GPIO Device
 #define LED_CHANNEL	 2  // Channel 2 of the GPIO Device
-// #define BUTTON_INTERRUPT XGPIO_IR_CH1_MASK  // Channel 1 Interrupt Mask
+#define DirectionMask 0xffffffff
+#define LED_DELAY	10
 
+// #define INTR_DELAY 0x00FFFFFF  // 1 second
+// #define BUTTON_INTERRUPT XGPIO_IR_CH1_MASK  // Channel 1 Interrupt Mask
 // #define INTERRUPT_CONTROL_VALUE 0x7  // To control the interrupt processing
 
 /*
@@ -85,91 +83,86 @@ XGpio sw_but;
 /************************** main Function *****************************/
 int main (void) {
 
-   XGpio dip, push;
-   int count;
-   int Status;
-   int dip_check, but_check, dip_push;
-   int dip_check_prev, but_check_prev, dip_push_prev; // psb_check
+  XGpio dip, push;
 
-   // PS Timer related definitions
-   XScuTimer_Config *ConfigPtr;
-   XScuTimer *TimerInstancePtr = &Timer;
+  int flag, temp;
+  int count, Status;
+  int btn_check, psb_check, dip_check, dip_check_prev;
 
-   xil_printf("-- Start of the Program --\r\n");
- 
-   XGpio_Initialize(&sw_but, XPAR_SWITCHES_DEVICE_ID);
-   // XGpio_Initialize (XGpio *InstancePtr, u16 DeviceId)
+  // PS Timer related definitions
+  XScuTimer_Config *ConfigPtr;
+  XScuTimer *TimerInstancePtr = &Timer;
 
-   XGpio_SetDataDirection(&sw_but, BTN_SW_CHANNEL, DEVICE_ID);
-   XGpio_SetDataDirection(&sw_but, LED_CHANNEL, DEVICE_ID);
-   // XGpio_SetDataDirection (XGpio * InstancePtr, unsigned Channel, u32 DirectionMask)
+  xil_printf("-- Start of the Program --\r\n");
 
-   count = 0;
+  XGpio_Initialize(&push, XPAR_SWITCHES_DEVICE_ID);
+  // XGpio_Initialize (XGpio *InstancePtr, u16 DeviceId)
 
-   // Initialize the timer
-   ConfigPtr = XScuTimer_LookupConfig (XPAR_PS7_SCUTIMER_0_DEVICE_ID);
-   // XScuTimer_Config * XScuTimer_LookupConfig	(u16 DeviceId)	
+  XGpio_SetDataDirection(&push, BTN_SW_CHANNEL, DirectionMask);
+  XGpio_SetDataDirection(&push, LED_CHANNEL, DirectionMask);
+  // XGpio_SetDataDirection(XGpio * InstancePtr, unsigned Channel, u32 DirectionMask)
 
-   Status = XScuTimer_CfgInitialize	(TimerInstancePtr, ConfigPtr, ConfigPtr->BaseAddr);
-   // s32 XScuTimer_CfgInitialize	(XScuTimer * InstancePtr, XScuTimer_Config * ConfigPtr, u32 EffectiveAddress)	
-
-   if (Status != XST_SUCCESS) {
-	   xil_printf("Timer init() failed\r\n");
-	   return XST_FAILURE;
-   }
-
-    dip_check_prev = XGpio_DiscreteRead(&sw_but, BTN_SW_CHANNEL);  // Read dip switch values
-   // XGpio_DiscreteRead(XGpio *InstancePtr, unsigned channel)
-   dip_check_prev = dip_push_prev % 16;
-   but_check_prev = (dip_push_prev - dip_check_prev) / 16;
-
-   XScuTimer_LoadTimer(TimerInstancePtr, ONE_TENTH * (dip_check_prev + but_check_prev));  // Load timer with delay in multiple of ONE_TENTH
-   // XScuTimer_LoadTimer(XScuTimer *InstancePtr, u32 Value)
-
-   XScuTimer_EnableAutoReload(TimerInstancePtr);  // Set AutoLoad mode
-   // XScuTimer_EnableAutoReload(XScuTimer *InstancePtr)
+  flag = 0;
+  count = 0;
    
-   XScuTimer_Start(TimerInstancePtr);  // Start the timer
-   // XScuTimer_Start(XScuTimer * InstancePtr)	
+  ConfigPtr = XScuTimer_LookupConfig(XPAR_PS7_SCUTIMER_0_DEVICE_ID);
+  // XScuTimer_Config * XScuTimer_LookupConfig(u16 DeviceId)	
 
-   while (1) {
-	   psb_check = XGpio_DiscreteRead(&push, LED_CHANNEL);  // Read push buttons and break the loop if Center button pressed
-      // XGpio_DiscreteRead(XGpio *InstancePtr, unsigned channel)
+  Status = XScuTimer_CfgInitialize(TimerInstancePtr, ConfigPtr, ConfigPtr->BaseAddr);  // Initialize the timer
+  // s32 XScuTimer_CfgInitialize(XScuTimer * InstancePtr, XScuTimer_Config * ConfigPtr, u32 EffectiveAddress)	
 
-	   if (psb_check > 0) {
-		   xil_printf("Interrupt valid, Button 0(1) is pressed\r\n");
-		   //XScuTimer_Stop(TimerInstancePtr);
-         // XScuTimer_Stop(XScuTimer * InstancePtr)	
-		   //break;
-	   }
+  if(Status != XST_SUCCESS) {
+	  xil_printf("Timer init() failed\r\n");
+	  return XST_FAILURE;
+  }
 
-      dip_check = XGpio_DiscreteRead(&sw_but, BTN_SW_CHANNEL);
-      // XGpio_DiscreteRead(XGpio *InstancePtr, unsigned channel)
-      dip_check = dip_push % 16;
-      but_check = (dip_push - dip_check) / 16;
+  dip_check_prev = XGpio_DiscreteRead(&push, BTN_SW_CHANNEL);  // Read dip switch values
+  // XGpio_DiscreteRead(XGpio *InstancePtr, unsigned channel)
 
-      if (dip_check != dip_check_prev || but_check != but_check_prev) {
-         if (dip_check != dip_check_prev){
-            xil_printf("DIP Switch Status %x, %x\r\n", dip_check_prev, dip_check);
-            dip_check_prev = dip_check;
-         }
-		   if (but_check != but_check_prev){
-            xil_printf("Button 2&3 Status %x, %x\r\n", but_check_prev, but_check);
-            but_check_prev = but_check;
-         }
-		   XScuTimer_LoadTimer(TimerInstancePtr, ONE_TENTH * (dip_check + but_check));  // load timer with the new switch settings
-         // XScuTimer_LoadTimer(XScuTimer *InstancePtr, u32 Value)
-		   count = 0;
-	   }
+  XScuTimer_LoadTimer(TimerInstancePtr, ONE_TENTH * dip_check_prev);  // Load timer with delay in multiple of ONE_TENTH
+  // XScuTimer_LoadTimer(XScuTimer *InstancePtr, u32 Value)
 
-	  if (XScuTimer_IsExpired(TimerInstancePtr)) {
-         // XScuTimer_IsExpired(XScuTimer *InstancePtr)
-		  	XScuTimer_ClearInterruptStatus(TimerInstancePtr);  // clear status bit
-         // XScuTimer_ClearInterruptStatus(XScuTimer *InstancePtr)
-		  	LED_IP_mWriteReg(XPAR_LED_IP_S_AXI_BASEADDR, 0, count);  // output the count to LED and increment the count
-         // LED_IP_mWriteReg(Xuint32 BaseAddress, unsigned RegOffset, Xuint32 Data)
-		  	count++;
-	   }
-   }
-   return 0;
+  XScuTimer_EnableAutoReload(TimerInstancePtr);  // Set AutoLoad mode
+  // XScuTimer_EnableAutoReload(XScuTimer *InstancePtr)
+
+  XScuTimer_Start(TimerInstancePtr);  // Start the timer
+  // XScuTimer_Start(XScuTimer * InstancePtr)
+
+  while (1) {
+	  psb_check = XGpio_DiscreteRead(&push, LED_CHANNEL);  // Read push buttons and break the loop if Center button pressed
+    // XGpio_DiscreteRead(XGpio *InstancePtr, unsigned channel)
+
+	  if ( (psb_check > 0) && (psb_check < 3) && (flag == 0) ) {
+	    xil_printf("Interrupt valid, Button 0(1) is pressed\r\n");
+	    flag = 1;
+	  }
+    temp = psb_check & 3;
+
+    if(flag == 0) {
+	    dip_check = XGpio_DiscreteRead(&push, BTN_SW_CHANNEL);
+
+	    if (dip_check != dip_check_prev) {
+		    xil_printf("DIP Switch Status %x, %x\r\n", dip_check_prev, dip_check);
+		    dip_check_prev = dip_check;
+		    XScuTimer_LoadTimer(TimerInstancePtr, ONE_TENTH * (dip_check + temp));  // load timer with the new switch settings
+        // XScuTimer_LoadTimer(XScuTimer *InstancePtr, u32 Value)
+		    count = 0;
+	    }
+    }
+
+    if(XScuTimer_IsExpired(TimerInstancePtr)) {
+        // XScuTimer_IsExpired(XScuTimer *InstancePtr)
+
+        XScuTimer_ClearInterruptStatus(TimerInstancePtr);  // clear status bit
+        // XScuTimer_ClearInterruptStatus(XScuTimer *InstancePtr)
+        
+        LED_IP_mWriteReg(XPAR_LED_IP_S_AXI_BASEADDR, 0, count);  // output the count to LED and increment the count
+        // LED_IP_mWriteReg(Xuint32 BaseAddress, unsigned RegOffset, Xuint32 Data)
+        count++;
+
+        if(count == LED_DELAY)
+          flag = 0;
+    }
+  }
+  return 0;
 }
